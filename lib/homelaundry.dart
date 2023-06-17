@@ -14,6 +14,9 @@ Future<List<Voucher>> fetchVouchers() async {
     final vouchers = List<Voucher>.from(
         data['voucher'].map((entry) => Voucher.fromJson(entry)));
     return vouchers;
+    //var data = json.decode(response.body);
+    //List jsonResponse = data["voucher"] as List;
+    //return jsonResponse.map((entry) => new Voucher.fromJson(entry)).toList();
   } else {
     throw Exception('Vouchers data not found');
   }
@@ -29,11 +32,12 @@ class Voucher {
     required this.besar,
     required this.minimalLaundry,
   });
+
   factory Voucher.fromJson(Map<String, dynamic> json) {
     return Voucher(
-      diskon: json['Diskon'] ?? '',
-      besar: json['Besar Diskon'] ?? '',
-      minimalLaundry: json['Minimal Laundry'] ?? '',
+      diskon: json['diskon'] ?? '',
+      besar: json['Besar'] ?? '',
+      minimalLaundry: json['minimallaundry'] ?? '',
     );
   }
 }

@@ -25,6 +25,7 @@ class LaundryListPage extends StatefulWidget {
 
 class _LaundryListPageState extends State<LaundryListPage> {
   late Future<List<Laundry>> _laundryFuture;
+  List<bool> _selectedLaundry = [];
 
   @override
   void initState() {
@@ -33,32 +34,28 @@ class _LaundryListPageState extends State<LaundryListPage> {
   }
 
   Future<List<Laundry>> _fetchLaundryList() async {
-    try {
-      final response = await http.get(Uri.parse(
-          'https://s3-id-jkt-1.kilatstorage.id/d3si-telu/audiansyah/tempatlaundry.json'));
-      if (response.statusCode == 200) {
-        List<dynamic> jsonData = json.decode(response.body);
-        return jsonData.map((item) => Laundry.fromJson(item)).toList();
-      } else {
-        throw Exception('Gagal memuat data: ${response.statusCode}');
-      }
-    } catch (e) {
-      throw Exception('Gagal memuat data: $e');
-    }
-  }
+    final response = await http.get(Uri.parse(
+        'https://s3-id-jkt-1.kilatstorage.id/d3si-telu/audiansyah/tempatlaundry.json'));
+    final data = jsonDecode(response.body);
+    print(data);
+    if (data.containsKey('TempatLaundry')) {
+      final tempatLaundry = List<Laundry>.from(
+          data['TempatLaundry'].map((entry) => Laundry.fromJson(entry)));
 
-  void _onLaundrySelected(Laundry selectedLaundry) {
-    print('Tempat Laundry Terpilih:');
-    print('Nama: ${selectedLaundry.nama}');
-    print('Alamat: ${selectedLaundry.alamat}');
-    print('Kontak: ${selectedLaundry.kontak}');
+      // Initialize the selected state of tempatLaundry
+      _selectedLaundry = List<bool>.filled(tempatLaundry.length, false);
+
+      return tempatLaundry;
+    } else {
+      throw Exception('Vouchers data not found');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Pilihan Tempat Laundry'),
+        title: Text('Daftar Tempat Laundry'),
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -70,41 +67,54 @@ class _LaundryListPageState extends State<LaundryListPage> {
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
           ),
-          FutureBuilder<List<Laundry>>(
-            future: _laundryFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return Center(child: CircularProgressIndicator());
-              } else if (snapshot.hasError) {
-                return Text('Gagal memuat data');
-              } else if (snapshot.hasData) {
-                List<Laundry> laundryList = snapshot.data!;
-                if (laundryList.isEmpty) {
-                  return Text('Tidak ada data tempat laundry');
-                }
-                return ListView.builder(
-                  itemCount: laundryList.length,
-                  itemBuilder: (context, index) {
-                    Laundry laundry = laundryList[index];
-                    return ListTile(
-                      title: Text(laundry.nama),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(laundry.alamat),
-                          Text(laundry.kontak),
+          Padding(
+            padding: EdgeInsets.all(16.0),
+            child: FutureBuilder<List<Laundry>>(
+              future: _fetchLaundryList(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator());
+                } else {
+                  if (snapshot.hasError) {
+                    return Text('Gagal memuat data');
+                  } else if (snapshot.hasData) {
+                    List<Laundry> tempatLaundry = snapshot.data!;
+                    return SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: DataTable(
+                        columns: [
+                          DataColumn(label: Text('Nama')),
+                          DataColumn(label: Text('Alamat')),
+                          DataColumn(label: Text('Kontak')),
+                          DataColumn(label: Text('Pilih')),
                         ],
+                        rows: tempatLaundry.asMap().entries.map((entry) {
+                          final index = entry.key;
+                          final Laundry laundry = entry.value;
+                          return DataRow(cells: [
+                            DataCell(Text(laundry.Nama)),
+                            DataCell(Text(laundry.Alamat)),
+                            DataCell(Text(laundry.Kontak)),
+                            DataCell(
+                              Checkbox(
+                                value: _selectedLaundry[index],
+                                onChanged: (value) {
+                                  setState(() {
+                                    _selectedLaundry[index] = value ?? false;
+                                  });
+                                },
+                              ),
+                            ),
+                          ]);
+                        }).toList(),
                       ),
-                      onTap: () {
-                        _onLaundrySelected(laundry);
-                      },
                     );
-                  },
-                );
-              } else {
-                return Text('Tidak ada data tempat laundry');
-              }
-            },
+                  } else {
+                    return Text('Tidak ada data tempat laundry');
+                  }
+                }
+              },
+            ),
           ),
           Padding(
             padding: EdgeInsets.symmetric(vertical: 16.0),
@@ -128,21 +138,21 @@ class _LaundryListPageState extends State<LaundryListPage> {
 }
 
 class Laundry {
-  final String nama;
-  final String alamat;
-  final String kontak;
+  final String Nama;
+  final String Alamat;
+  final String Kontak;
 
   Laundry({
-    required this.nama,
-    required this.alamat,
-    required this.kontak,
+    required this.Nama,
+    required this.Alamat,
+    required this.Kontak,
   });
 
   factory Laundry.fromJson(Map<String, dynamic> json) {
     return Laundry(
-      nama: json['Nama'],
-      alamat: json['Alamat'],
-      kontak: json['Kontak'],
+      Nama: json['Nama'],
+      Alamat: json['Alamat'],
+      Kontak: json['Kontak'],
     );
   }
 }

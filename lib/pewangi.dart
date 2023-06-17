@@ -13,58 +13,49 @@ class pewangi extends StatelessWidget {
     return MaterialApp(
       title: 'Daftar Pewangi Pakaian',
       theme: ThemeData(primarySwatch: Colors.blue),
-      home: PewangiListPage(),
+      home: LaundryListPage(),
     );
   }
 }
 
-class PewangiListPage extends StatefulWidget {
+class LaundryListPage extends StatefulWidget {
   @override
-  _PewangiListPageState createState() => _PewangiListPageState();
+  _LaundryListPageState createState() => _LaundryListPageState();
 }
 
-class _PewangiListPageState extends State<PewangiListPage> {
-  late Future<List<Pewangi>> _pewangiFuture;
+class _LaundryListPageState extends State<LaundryListPage> {
+  late Future<List<Pewangi>> _laundryFuture;
+  List<bool> _selectedPewangi = [];
 
   @override
   void initState() {
     super.initState();
-    _pewangiFuture = _fetchPewangiList();
+    _laundryFuture = _fetchLaundryList();
   }
 
-  Future<List<Pewangi>> _fetchPewangiList() async {
-    try {
-      final response = await http.get(Uri.parse(
-          'https://s3-id-jkt-1.kilatstorage.id/d3si-telu/audiansyah/pewangi.json'));
-      if (response.statusCode == 200) {
-        List<dynamic> jsonData = json.decode(response.body);
-        return jsonData
-            .map((item) => Pewangi(
-                  name: item['nama'],
-                  brand: item['merek'],
-                ))
-            .toList();
-      } else {
-        throw Exception('Gagal memuat data');
-      }
-    } catch (e) {
-      throw Exception('Gagal memuat data');
+  Future<List<Pewangi>> _fetchLaundryList() async {
+    final response = await http.get(Uri.parse(
+        'https://s3-id-jkt-1.kilatstorage.id/d3si-telu/audiansyah/pewangi.json'));
+    final data = jsonDecode(response.body);
+    print(data);
+    if (data.containsKey('pewangi_pakaian')) {
+      final pewangi_pakaian = List<Pewangi>.from(
+          data['pewangi_pakaian'].map((entry) => Pewangi.fromJson(entry)));
+
+      // Initialize the selected state of pewangi
+      _selectedPewangi = List<bool>.filled(pewangi_pakaian.length, false);
+
+      return pewangi_pakaian;
+    } else {
+      throw Exception('Vouchers data not found');
     }
-  }
-
-  void _onPewangiSelected(Pewangi selectedPewangi) {
-    // Lakukan sesuatu dengan pewangi yang dipilih
-    // Misalnya, simpan pewangi terpilih ke dalam variabel atau lakukan navigasi ke halaman berikutnya
-    print('Pewangi Terpilih:');
-    print('Nama: ${selectedPewangi.name}');
-    print('Merek: ${selectedPewangi.brand}');
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Daftar Pewangi Pakaian'),
+        title: Text('Pilihan Pewangi'),
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -72,36 +63,56 @@ class _PewangiListPageState extends State<PewangiListPage> {
           Padding(
             padding: EdgeInsets.all(16.0),
             child: Text(
-              'Silahkan pilih pewangi sesuai selera anda',
+              'Pilih pewangi sesuai selera anda!',
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
           ),
-          FutureBuilder<List<Pewangi>>(
-            future: _pewangiFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return Center(child: CircularProgressIndicator());
-              } else if (snapshot.hasError) {
-                return Text('Gagal memuat data');
-              } else if (snapshot.hasData) {
-                List<Pewangi> pewangiList = snapshot.data!;
-                return ListView.builder(
-                  itemCount: pewangiList.length,
-                  itemBuilder: (context, index) {
-                    Pewangi pewangi = pewangiList[index];
-                    return ListTile(
-                      title: Text(pewangi.name),
-                      subtitle: Text(pewangi.brand),
-                      onTap: () {
-                        _onPewangiSelected(pewangi);
-                      },
+          Padding(
+            padding: EdgeInsets.all(16.0),
+            child: FutureBuilder<List<Pewangi>>(
+              future: _fetchLaundryList(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator());
+                } else {
+                  if (snapshot.hasError) {
+                    return Text('Gagal memuat data');
+                  } else if (snapshot.hasData) {
+                    List<Pewangi> pewangi_pakaian = snapshot.data!;
+                    return SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: DataTable(
+                        columns: [
+                          DataColumn(label: Text('Nama')),
+                          DataColumn(label: Text('Merek')),
+                          DataColumn(label: Text('Pilih')),
+                        ],
+                        rows: pewangi_pakaian.asMap().entries.map((entry) {
+                          final index = entry.key;
+                          final Pewangi pewangi = entry.value;
+                          return DataRow(cells: [
+                            DataCell(Text(pewangi.nama)),
+                            DataCell(Text(pewangi.merek)),
+                            DataCell(
+                              Checkbox(
+                                value: _selectedPewangi[index],
+                                onChanged: (bool? value) {
+                                  setState(() {
+                                    _selectedPewangi[index] = value ?? false;
+                                  });
+                                },
+                              ),
+                            ),
+                          ]);
+                        }).toList(),
+                      ),
                     );
-                  },
-                );
-              } else {
-                return Text('Tidak ada data pewangi pakaian');
-              }
-            },
+                  } else {
+                    return Text('Tidak ada data pewangi');
+                  }
+                }
+              },
+            ),
           ),
           Padding(
             padding: EdgeInsets.symmetric(vertical: 16.0),
@@ -125,11 +136,18 @@ class _PewangiListPageState extends State<PewangiListPage> {
 }
 
 class Pewangi {
-  final String name;
-  final String brand;
+  final String nama;
+  final String merek;
 
   Pewangi({
-    required this.name,
-    required this.brand,
+    required this.nama,
+    required this.merek,
   });
+
+  factory Pewangi.fromJson(Map<String, dynamic> json) {
+    return Pewangi(
+      nama: json['nama'],
+      merek: json['merek'],
+    );
+  }
 }
